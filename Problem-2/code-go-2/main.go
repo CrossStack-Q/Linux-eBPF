@@ -3,15 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
 
 func main() {
-
 	spec, err := ebpf.LoadCollectionSpec("drop_process.o")
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -24,19 +23,15 @@ func main() {
 	if err := spec.LoadAndAssign(&objs, nil); err != nil {
 		log.Fatal(err)
 	}
-
 	defer objs.DropOtherPorts.Close()
 
 	procName := [16]byte{}
-
-	copy(procName[:], "myprocess")
-
+	copy(procName[:], "nc")
 	port := uint16(4040)
 
 	if err := objs.ProcPort.Put(procName, port); err != nil {
 		log.Fatal(err)
 	}
-
 	fmt.Println("Restricting process 'myprocess' to port:", port)
 
 	cgroupPath := "/sys/fs/cgroup/mygroup"
@@ -46,13 +41,10 @@ func main() {
 		Attach:  ebpf.AttachCGroupInet4Connect,
 		Program: objs.DropOtherPorts,
 	})
-
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	defer l.Close()
 
-	select {}
-
+	time.Sleep(time.Hour)
 }

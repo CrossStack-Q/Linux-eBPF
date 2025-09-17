@@ -3,6 +3,7 @@
 #include <linux/in.h>
 #include <linux/sched.h>
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_tracing.h>
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -16,17 +17,19 @@ SEC("cgroup/connect4")
 int drop_other_ports(struct bpf_sock_addr *ctx) {
     char comm[16];
     bpf_get_current_comm(&comm, sizeof(comm));
-    __u16 *allowed_port = bpf_map_lookup_elem(&proc_port, &comm);
-    if (allowed_port)
-    {
-        if (ctx->user_port == *allowed_port)
-        {
-            return 1;
-        }
-        else
-        {
-            return 0;
-        }
+
+    __u16 dport = ctx->user_port;
+
+    bpf_printk("proc=%s port=%d\n", comm, dport);
+
+    __u16 *allowed = bpf_map_lookup_elem(&proc_port, comm);
+    if (allowed && *allowed == dport) {
+        bpf_printk("ALLOW %s:%d\n", comm, dport);
+        return 1;
     }
-    return 1;
+
+    bpf_printk("DROP %s:%d\n", comm, dport);
+    return 0;
 }
+
+char _license[] SEC("license") = "GPL";
